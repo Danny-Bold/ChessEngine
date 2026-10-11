@@ -2,35 +2,13 @@
 // Created by Danny on 10/10/2026.
 //
 
-#include "chess/Board.h"
 
 #include <array>
 #include <cstdint>
 #include <iostream>
 
-namespace {
+#include "chess/Board.h"
 
-    using namespace Chess;
-
-    std::uint64_t perft(Board& board, int depth)
-    {
-        if (depth == 0) {
-            return 1;
-        }
-
-        const auto moves = board.getLegalMoves();
-        std::uint64_t nodes = 0;
-
-        for (auto move : moves) {
-            board.makeMove(move);
-            nodes += perft(board, depth - 1);
-            board.undoMove(move);
-        }
-
-        return nodes;
-    }
-
-} // namespace
 
 int main() {  // TODO Make other positions to test from
     using namespace Chess;

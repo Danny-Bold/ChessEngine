@@ -10,6 +10,8 @@
 #include "chess/Board.h"
 #include "chess/UCI.h"
 
+#include <limits>
+
 
 namespace Chess {
     Uci::Uci(Board& board) : board_(board) {}
@@ -49,6 +51,7 @@ namespace Chess {
             handlePosition(line);
         }
         else if (command == "go") {
+            handleGo(line);
             // TODO: invoke the search algorithm.
         }
         else if (command == "stop") {
@@ -107,6 +110,161 @@ namespace Chess {
 
         while (input >> token) {
             board_.makeMove(token);
+        }
+    }
+
+    void Uci::handleGo(const std::string& line) {
+        std::istringstream input(line);
+        std::vector<std::string> tokens;
+        std::string token;
+
+        input >> token; // "go"
+
+        while (input >> token) {
+            tokens.push_back(token);
+        }
+
+        GoParameters params;
+
+        auto isKeyword = [](const std::string& s) {
+            return s == "infinite" ||
+               s == "ponder" ||
+               s == "depth" ||
+               s == "mate" ||
+               s == "nodes" ||
+               s == "movetime" ||
+               s == "wtime" ||
+               s == "btime" ||
+               s == "winc" ||
+               s == "binc" ||
+               s == "movestogo" ||
+               s == "searchmoves" ||
+               s == "perft";
+        };
+
+        auto parseNumber = [](const std::string& s) -> uint64_t {
+            std::size_t pos = 0;
+            unsigned long long value = std::stoull(s, &pos);
+
+            if (pos != s.size() || s.empty() || s[0] == '-') {
+                throw std::invalid_argument("Invalid number");
+            }
+            return value;
+        };
+
+        try {
+            for (std::size_t i = 0; i < tokens.size(); ++i) {
+                const std::string& key = tokens[i];
+
+                if (key == "infinite") {
+                    params.infinite = true;
+                }
+                else if (key == "ponder") {
+                    params.ponder = true;
+                }
+                else if (key == "searchmoves") {
+                    // Read moves until the next recognised keyword.
+                    while (i + 1 < tokens.size() &&
+                           !isKeyword(tokens[i + 1])) {
+                        params.searchMoves.push_back(tokens[++i]);
+                    }
+
+                    if (params.searchMoves.empty()) {
+                        throw std::invalid_argument(
+                            "searchmoves requires at least one move"
+                        );
+                    }
+                }
+                else if (key == "depth" ||
+                         key == "mate" ||
+                         key == "nodes" ||
+                         key == "movetime" ||
+                         key == "wtime" ||
+                         key == "btime" ||
+                         key == "winc" ||
+                         key == "binc" ||
+                         key == "movestogo" ||
+                         key == "perft") {
+
+                    if (i + 1 >= tokens.size() ||
+                        isKeyword(tokens[i + 1])) {
+                        throw std::invalid_argument(
+                            key + " requires a value"
+                        );
+                    }
+
+                    uint64_t value = parseNumber(tokens[++i]);
+
+                    if (key == "depth") {
+                        if (value == 0 ||
+                            value > std::numeric_limits<int>::max()) {
+                            throw std::invalid_argument("Invalid depth");
+                        }
+                        params.depth = static_cast<int>(value);
+                    }
+                    else if (key == "mate") {
+                        if (value == 0 ||
+                            value > std::numeric_limits<int>::max()) {
+                            throw std::invalid_argument("Invalid mate limit");
+                        }
+                        params.mate = static_cast<int>(value);
+                    }
+                    else if (key == "nodes") {
+                        params.nodes = value;
+                    }
+                    else if (key == "movetime") {
+                        if (value > std::numeric_limits<int>::max()) {
+                            throw std::invalid_argument("Invalid movetime");
+                        }
+                        params.moveTime = static_cast<int>(value);
+                    }
+                    else if (key == "wtime") {
+                        if (value > std::numeric_limits<int>::max()) {
+                            throw std::invalid_argument("Invalid wtime");
+                        }
+                        params.wtime = static_cast<int>(value);
+                    }
+                    else if (key == "btime") {
+                        if (value > std::numeric_limits<int>::max()) {
+                            throw std::invalid_argument("Invalid btime");
+                        }
+                        params.btime = static_cast<int>(value);
+                    }
+                    else if (key == "winc") {
+                        if (value > std::numeric_limits<int>::max()) {
+                            throw std::invalid_argument("Invalid winc");
+                        }
+                        params.winc = static_cast<int>(value);
+                    }
+                    else if (key == "binc") {
+                        if (value > std::numeric_limits<int>::max()) {
+                            throw std::invalid_argument("Invalid binc");
+                        }
+                        params.binc = static_cast<int>(value);
+                    }
+                    else if (key == "movestogo") {
+                        if (value == 0 ||
+                            value > std::numeric_limits<int>::max()) {
+                            throw std::invalid_argument("Invalid movestogo");
+                        }
+                        params.movesToGo = static_cast<int>(value);
+                    }
+                    else if (key == "perft") {
+                        divide(board_, static_cast<int>(value));
+                        return;
+                    }
+                }
+                else {
+                    throw std::invalid_argument(
+                        "Unknown go parameter: " + key
+                    );
+                }
+            }
+        }
+        catch (const std::exception& e) {
+            std::cout << "info string Invalid go command: "
+                      << e.what() << '\n';
+            return;
         }
     }
 

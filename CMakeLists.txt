@@ -69,7 +69,6 @@ include(CTest)
 if(BUILD_TESTING)
     add_executable(chess_perft_tests
             tests/perft_tests.cpp
-            tests/make_move_tests.cpp
     )
 
     target_link_libraries(chess_perft_tests

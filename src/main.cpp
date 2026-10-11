@@ -6,42 +6,42 @@
 #include "chess/UCI.h"
 
 
-int perft(int depth, Chess::Board& board) {
-    if (depth == 0) {
-        return 1;
-    }
-
-    std::vector<Chess::Move> moves = board.getLegalMoves();
-
-    int nodes = 0;
-
-    for (Chess::Move& move : moves) {
-        board.makeMove(move);
-        board.assertConsistent();
-        nodes += perft(depth - 1, board);
-        board.undoMove(move);
-        board.assertConsistent();
-    }
-
-    return nodes;
-}
-
-void divide(Chess::Board& board, int depth) {
-    auto moves = board.getLegalMoves();
-
-    uint64_t total = 0;
-
-    for (const Chess::Move& move : moves) {
-        board.makeMove(move);
-        uint64_t nodes = perft(depth - 1, board);
-        board.undoMove(move);
-
-        std::cout << moveToString(move) << ": " << nodes << '\n';
-        total += nodes;
-    }
-
-    std::cout << "Total: " << total << '\n';
-}
+// int perft(int depth, Chess::Board& board) {
+//     if (depth == 0) {
+//         return 1;
+//     }
+//
+//     std::vector<Chess::Move> moves = board.getLegalMoves();
+//
+//     int nodes = 0;
+//
+//     for (Chess::Move& move : moves) {
+//         board.makeMove(move);
+//         board.assertConsistent();
+//         nodes += perft(depth - 1, board);
+//         board.undoMove(move);
+//         board.assertConsistent();
+//     }
+//
+//     return nodes;
+// }
+//
+// void divide(Chess::Board& board, int depth) {
+//     auto moves = board.getLegalMoves();
+//
+//     uint64_t total = 0;
+//
+//     for (const Chess::Move& move : moves) {
+//         board.makeMove(move);
+//         uint64_t nodes = perft(depth - 1, board);
+//         board.undoMove(move);
+//
+//         std::cout << moveToString(move) << ": " << nodes << '\n';
+//         total += nodes;
+//     }
+//
+//     std::cout << "Total: " << total << '\n';
+// }
 
 void testMakeUndo(int depth, Chess::Board& board) {
     if (depth == 0) {

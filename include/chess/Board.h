@@ -158,4 +158,8 @@ namespace Chess {
         return result;
     }
 
+    std::uint64_t perft(Board& board, int depth);
+
+    void divide(Board& board, int depth);
+
 }

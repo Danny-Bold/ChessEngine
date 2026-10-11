@@ -1130,4 +1130,39 @@ namespace Chess{
             halfMoveClock == other.halfMoveClock;
 
     }
+
+    std::uint64_t perft(Board& board, int depth) {
+        if (depth == 0) {
+            return 1;
+        }
+
+        const auto moves = board.getLegalMoves();
+        std::uint64_t nodes = 0;
+
+        for (auto move : moves) {
+            board.makeMove(move);
+            nodes += perft(board, depth - 1);
+            board.undoMove(move);
+        }
+
+        return nodes;
+    }
+
+    void divide(Board& board, int depth) {
+        auto moves = board.getLegalMoves();
+
+        uint64_t total = 0;
+
+        for (const Chess::Move& move : moves) {
+            board.makeMove(move);
+            uint64_t nodes = perft(board, depth - 1);
+            board.undoMove(move);
+
+            std::cout << moveToString(move) << ": " << nodes << '\n';
+            total += nodes;
+        }
+
+        std::cout << "Total: " << total << '\n';
+    }
+
 }
