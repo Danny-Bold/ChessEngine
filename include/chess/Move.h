@@ -42,5 +42,6 @@ namespace Chess {
     struct History {
         Square enPassantSquare;
         CastlingRights castlingRights;
+        int halfMoveClock;
     };
 }

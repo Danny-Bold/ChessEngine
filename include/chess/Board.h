@@ -44,6 +44,8 @@ namespace Chess {
 
         bool isSquareAttacked(Square square, Colour colour) const;
 
+        bool isInsufficientMaterial() const;
+
         void removePieceAt(Square square);
         void insertPieceAt(Square square, Piece piece);
         void makeMove(const Move& move);
@@ -56,6 +58,8 @@ namespace Chess {
         Square blackKingPosition() const;
 
         CastlingRights getCastlingRights() const;
+
+        int getHalfMoveClock() const;
 
         std::vector<Move> getLegalMoves() const;
 
@@ -93,6 +97,8 @@ namespace Chess {
         std::vector<History> history;
 
         Colour sideToMove;
+
+        int halfMoveClock;  // Measure time from last capture or pawn push
 
     };
 

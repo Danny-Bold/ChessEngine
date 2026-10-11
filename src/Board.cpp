@@ -48,6 +48,8 @@ namespace Chess{
         castlingRights = WK | WQ | BK | BQ;
 
         sideToMove = Colour::WHITE;
+
+        halfMoveClock = 0;
     }
 
     void Board::print() const {
@@ -389,6 +391,46 @@ namespace Chess{
         return false;
     }
 
+    bool Board::isInsufficientMaterial() const {
+        if (getPieces(WHITE_PAWN) ||
+            getPieces(BLACK_PAWN) ||
+            getPieces(WHITE_ROOK) ||
+            getPieces(BLACK_ROOK) ||
+            getPieces(WHITE_QUEEN) ||
+            getPieces(BLACK_QUEEN)) {
+            return false;
+            }
+
+        uint64_t knights =
+            getPieces(WHITE_KNIGHT) |
+            getPieces(BLACK_KNIGHT);
+
+        uint64_t bishops =
+            getPieces(WHITE_BISHOP) |
+            getPieces(BLACK_BISHOP);
+
+        int knightCount = std::popcount(knights);
+        int bishopCount = std::popcount(bishops);
+
+
+        if (knightCount + bishopCount <= 1) {
+            return true;
+        }
+
+        if (knightCount == 0) {
+            constexpr uint64_t LIGHT_SQUARES = 0x55AA55AA55AA55AAULL;
+            constexpr uint64_t DARK_SQUARES = ~LIGHT_SQUARES;
+
+            bool allLight = (bishops & DARK_SQUARES) == 0;
+            bool allDark = (bishops & LIGHT_SQUARES) == 0;
+
+            if (allLight || allDark) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void Board::removePieceAt(Square square) {
         uint64_t bb = 1ULL << toIndex(square);
         Piece piece = pieceAt(square);
@@ -503,7 +545,7 @@ namespace Chess{
         Piece piece = move.movingPiece;
 
         // Push state onto history
-        history.push_back({enPassantSquare, castlingRights});
+        history.push_back({enPassantSquare, castlingRights, halfMoveClock});
 
         // Remove the piece being moved
         removePieceAt(from);
@@ -594,6 +636,15 @@ namespace Chess{
         }
 
         sideToMove = opposite(sideToMove);
+
+        // Handling halfmove clock
+
+        if (move.movingPiece == WHITE_PAWN || move.movingPiece == BLACK_PAWN || move.capturedPiece != EMPTY) {
+            halfMoveClock = 0;
+        }
+        else {
+            halfMoveClock++;
+        }
     }
 
     void Board::makeMove(std::string_view notation) {
@@ -683,6 +734,7 @@ namespace Chess{
         // Restore the correct en passant and castling state
         enPassantSquare = oldState.enPassantSquare;
         castlingRights = oldState.castlingRights;
+        halfMoveClock = oldState.halfMoveClock;
 
         // Remove the history that doesn't exist anymore
         history.pop_back();
@@ -704,6 +756,10 @@ namespace Chess{
 
     CastlingRights Board::getCastlingRights() const {
         return castlingRights;
+    }
+
+    int Board::getHalfMoveClock() const {
+        return halfMoveClock;
     }
 
     std::vector<Move> Board::getLegalMoves() const {
@@ -1046,7 +1102,6 @@ namespace Chess{
             const int epRank = enPassant[1] - '1';
             const int epIndex = epRank * 8 + epFile;
 
-            // Assumes Square values map directly to a1=0 ... h8=63.
             enPassantSquare = static_cast<Square>(epIndex);
         }
     }
@@ -1071,6 +1126,8 @@ namespace Chess{
 
             enPassantSquare == other.enPassantSquare &&
             castlingRights == other.castlingRights &&
-            sideToMove == other.sideToMove;
+            sideToMove == other.sideToMove &&
+            halfMoveClock == other.halfMoveClock;
+
     }
 }
