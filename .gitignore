@@ -1,0 +1,24 @@
+# Build outputs
+/build/
+/cmake-build-*/
+/cmake-build-debug/
+/cmake-build-release/
+
+# CLion / JetBrains
+.idea/
+
+# Compiled binaries and object files
+*.exe
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.pdb
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+build.ninja
+Makefile
