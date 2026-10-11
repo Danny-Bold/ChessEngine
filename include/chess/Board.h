@@ -37,7 +37,10 @@ namespace Chess {
         uint64_t getWhitePieces() const;
         uint64_t getBlackPieces() const;
         uint64_t getAllPieces() const;
+        uint64_t getPieces(Piece piece) const;
         uint64_t getEmpty() const;
+
+        bool whiteToMove() const;
 
         bool isSquareAttacked(Square square, Colour colour) const;
 
