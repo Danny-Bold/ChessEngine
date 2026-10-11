@@ -9,6 +9,13 @@ add_library(chess_engine
         src/Bitboard.cpp
         src/AttackTables.cpp
         src/MoveGen.cpp
+        include/chess/UCI.h
+        src/UCI.cpp
+        src/search.cpp
+        include/chess/search.h
+        src/Evaluation.cpp
+        include/chess/Evaluation.h
+        src/PieceSquareTables.cpp
 )
 
 target_include_directories(chess_engine
