@@ -14,6 +14,8 @@
 #include "chess/Bitboard.h"
 #include "chess/constants.h"
 #include "chess/MoveGen.h"
+#include "chess/UCI.h"
+
 
 namespace Chess{
     Board::Board()
@@ -1047,76 +1049,5 @@ namespace Chess{
             enPassantSquare == other.enPassantSquare &&
             castlingRights == other.castlingRights &&
             sideToMove == other.sideToMove;
-    }
-
-    std::optional<Move> parseUCIMove(const Board& board, std::string_view notation) {
-        // Validate the notation's basic structure.
-        if (notation.size() != 4 && notation.size() != 5) {
-            std::cout << "invalid size\n";
-            return std::nullopt;
-        }
-
-        // Validate the coordinates.
-        if (notation[0] < 'a' || notation[0] > 'h' ||
-            notation[2] < 'a' || notation[2] > 'h' ||
-            notation[1] < '1' || notation[1] > '8' ||
-            notation[3] < '1' || notation[3] > '8') {
-            std::cout << "invalid squares\n";
-            return std::nullopt;
-        }
-
-        const auto squareFromCoords = [](char file, char rank) {
-            return static_cast<Square>(
-                (rank - '1') * 8 + (file - 'a')
-            );
-        };
-
-        const Square start = squareFromCoords(notation[0], notation[1]);
-        const Square end   = squareFromCoords(notation[2], notation[3]);
-
-        // Parse the optional promotion suffix.
-        char promotion = '\0';
-
-        if (notation.size() == 5) {
-            promotion = notation[4];
-
-            if (promotion != 'q' && promotion != 'r' &&
-                promotion != 'b' && promotion != 'n') {
-                std::cout << "invalid promotion\n";
-                return std::nullopt;
-            }
-        }
-
-        // Resolve the notation against the legal moves.
-        for (const Move& move : board.getLegalMoves()) {
-            if (move.from != start ||
-                move.to != end) {
-                continue;
-            }
-
-            // Adapt this comparison to your Move representation.
-            const Piece promoted = move.promotionPiece;
-
-            if (promotion == '\0') {
-                if (promoted == EMPTY) {
-                    return move;
-                }
-            } else {
-                const char expected =
-                    promoted == WHITE_QUEEN || promoted == BLACK_QUEEN ? 'q' :
-                    promoted == WHITE_ROOK  || promoted == BLACK_ROOK  ? 'r' :
-                    promoted == WHITE_BISHOP || promoted == BLACK_BISHOP ? 'b' :
-                    promoted == WHITE_KNIGHT || promoted == BLACK_KNIGHT ? 'n' :
-                    '\0';
-
-                if (expected == promotion) {
-                    return move;
-                }
-            }
-        }
-
-        std::cout << "other\n";
-
-        return std::nullopt;
     }
 }

@@ -93,8 +93,6 @@ namespace Chess {
 
     };
 
-    std::optional<Move> parseUCIMove(const Board& board, std::string_view notation);
-
     inline int toIndex(Square sq) {
         return static_cast<int>(sq);
     }
