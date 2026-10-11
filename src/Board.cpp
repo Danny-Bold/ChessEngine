@@ -571,6 +571,16 @@ namespace Chess{
         sideToMove = opposite(sideToMove);
     }
 
+    void Board::makeMove(std::string_view notation) {
+        auto move = parseUCIMove(*this, notation);
+
+        if (!move.has_value()) {
+            throw std::invalid_argument("Invalid or illegal UCI move: " + std::string(notation));
+        }
+
+        makeMove(*move);
+    }
+
     void Board::undoMove(const Move& move) {
         Square from = move.from;
         Square to = move.to;
@@ -667,13 +677,19 @@ namespace Chess{
         return getMSB(blackKing);
     }
 
-    std::vector<Move> Board::getLegalMoves() {
+    CastlingRights Board::getCastlingRights() const {
+        return castlingRights;
+    }
+
+    std::vector<Move> Board::getLegalMoves() const {
         initialiseAttackTables();
 
+        Board copy = *this;
+
         if (sideToMove == Colour::WHITE) {
-            return generateWhiteMoves(*this);
+            return generateWhiteMoves(copy);
         }
-        return generateBlackMoves(*this);
+        return generateBlackMoves(copy);
     }
 
     void Board::assertConsistent() const {
@@ -682,7 +698,7 @@ namespace Chess{
             Piece mailboxPiece = board[sq];
             Piece bitboardPiece = EMPTY;
 
-            if (whitePawns & mask)      bitboardPiece = WHITE_PAWN;
+            if (whitePawns & mask) bitboardPiece = WHITE_PAWN;
             else if (whiteRooks & mask) bitboardPiece = WHITE_ROOK;
             else if (whiteKnights & mask) bitboardPiece = WHITE_KNIGHT;
             else if (whiteBishops & mask) bitboardPiece = WHITE_BISHOP;
@@ -703,19 +719,19 @@ namespace Chess{
         // Clear board representations
         board.fill(EMPTY);
 
-        whitePawns   = 0;
-        whiteRooks   = 0;
+        whitePawns = 0;
+        whiteRooks = 0;
         whiteKnights = 0;
         whiteBishops = 0;
-        whiteQueens  = 0;
-        whiteKing    = 0;
+        whiteQueens = 0;
+        whiteKing = 0;
 
-        blackPawns   = 0;
-        blackRooks   = 0;
+        blackPawns = 0;
+        blackRooks = 0;
         blackKnights = 0;
         blackBishops = 0;
-        blackQueens  = 0;
-        blackKing    = 0;
+        blackQueens = 0;
+        blackKing = 0;
 
         // Rebuild mailbox + bitboards
         for (int square = 0; square < 64; ++square) {
@@ -1014,22 +1030,93 @@ namespace Chess{
         return
             board == other.board &&
 
-            whitePawns   == other.whitePawns &&
-            whiteRooks   == other.whiteRooks &&
+            whitePawns == other.whitePawns &&
+            whiteRooks == other.whiteRooks &&
             whiteKnights == other.whiteKnights &&
             whiteBishops == other.whiteBishops &&
-            whiteQueens  == other.whiteQueens &&
-            whiteKing    == other.whiteKing &&
+            whiteQueens == other.whiteQueens &&
+            whiteKing == other.whiteKing &&
 
-            blackPawns   == other.blackPawns &&
-            blackRooks   == other.blackRooks &&
+            blackPawns == other.blackPawns &&
+            blackRooks == other.blackRooks &&
             blackKnights == other.blackKnights &&
             blackBishops == other.blackBishops &&
-            blackQueens  == other.blackQueens &&
-            blackKing    == other.blackKing &&
+            blackQueens == other.blackQueens &&
+            blackKing == other.blackKing &&
 
             enPassantSquare == other.enPassantSquare &&
-            castlingRights  == other.castlingRights &&
-            sideToMove      == other.sideToMove;
+            castlingRights == other.castlingRights &&
+            sideToMove == other.sideToMove;
+    }
+
+    std::optional<Move> parseUCIMove(const Board& board, std::string_view notation) {
+        // Validate the notation's basic structure.
+        if (notation.size() != 4 && notation.size() != 5) {
+            std::cout << "invalid size\n";
+            return std::nullopt;
+        }
+
+        // Validate the coordinates.
+        if (notation[0] < 'a' || notation[0] > 'h' ||
+            notation[2] < 'a' || notation[2] > 'h' ||
+            notation[1] < '1' || notation[1] > '8' ||
+            notation[3] < '1' || notation[3] > '8') {
+            std::cout << "invalid squares\n";
+            return std::nullopt;
+        }
+
+        const auto squareFromCoords = [](char file, char rank) {
+            return static_cast<Square>(
+                (rank - '1') * 8 + (file - 'a')
+            );
+        };
+
+        const Square start = squareFromCoords(notation[0], notation[1]);
+        const Square end   = squareFromCoords(notation[2], notation[3]);
+
+        // Parse the optional promotion suffix.
+        char promotion = '\0';
+
+        if (notation.size() == 5) {
+            promotion = notation[4];
+
+            if (promotion != 'q' && promotion != 'r' &&
+                promotion != 'b' && promotion != 'n') {
+                std::cout << "invalid promotion\n";
+                return std::nullopt;
+            }
+        }
+
+        // Resolve the notation against the legal moves.
+        for (const Move& move : board.getLegalMoves()) {
+            if (move.from != start ||
+                move.to != end) {
+                continue;
+            }
+
+            // Adapt this comparison to your Move representation.
+            const Piece promoted = move.promotionPiece;
+
+            if (promotion == '\0') {
+                if (promoted == EMPTY) {
+                    return move;
+                }
+            } else {
+                const char expected =
+                    promoted == WHITE_QUEEN || promoted == BLACK_QUEEN ? 'q' :
+                    promoted == WHITE_ROOK  || promoted == BLACK_ROOK  ? 'r' :
+                    promoted == WHITE_BISHOP || promoted == BLACK_BISHOP ? 'b' :
+                    promoted == WHITE_KNIGHT || promoted == BLACK_KNIGHT ? 'n' :
+                    '\0';
+
+                if (expected == promotion) {
+                    return move;
+                }
+            }
+        }
+
+        std::cout << "other\n";
+
+        return std::nullopt;
     }
 }

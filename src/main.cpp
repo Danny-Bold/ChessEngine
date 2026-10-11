@@ -80,16 +80,13 @@ int main() {
 
     board.loadFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
 
-    std::cout << "KIWIPETE, DEPTH = 4: " << perft(4, board) << "\n";
+    // std::cout << "KIWIPETE, DEPTH = 4: " << perft(4, board) << "\n";
 
     // board.assertConsistent()
 
-    // board.makeMove(Chess::Move(Chess::Square::A2, Chess::Square::A3, Chess::WHITE_PAWN, Chess::EMPTY, Chess::EMPTY, false, false, false));
-    // board.makeMove(Chess::Move(Chess::Square::B4, Chess::Square::B3, Chess::BLACK_PAWN, Chess::EMPTY, Chess::EMPTY, false, false, false));
-    // board.makeMove(Chess::Move(Chess::Square::G2, Chess::Square::G3, Chess::WHITE_PAWN, Chess::EMPTY, Chess::EMPTY, false, false, false));
-    // board.makeMove(Chess::Move(Chess::Square::D8, Chess::Square::A5, Chess::BLACK_QUEEN, Chess::EMPTY, Chess::EMPTY, false, false, false));
-    // board.print();
-    // divide(board, 4);
-
+    board.makeMove("a2a3");
+    board.makeMove("b4b3");
+    board.makeMove("g2g3");
+    divide(board, 2);
 }
 

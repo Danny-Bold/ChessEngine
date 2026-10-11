@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstdint>
 #include <array>
+#include <optional>
 
 #include "constants.h"
 #include "Move.h"
@@ -43,13 +44,17 @@ namespace Chess {
         void removePieceAt(Square square);
         void insertPieceAt(Square square, Piece piece);
         void makeMove(const Move& move);
+        void makeMove(std::string_view notation);
         void undoMove(const Move& move);
+
         Piece pieceAt(Square sq) const;
 
         Square whiteKingPosition() const;
         Square blackKingPosition() const;
 
-        std::vector<Move> getLegalMoves();
+        CastlingRights getCastlingRights() const;
+
+        std::vector<Move> getLegalMoves() const;
 
         void assertConsistent() const;
 
@@ -87,6 +92,8 @@ namespace Chess {
         Colour sideToMove;
 
     };
+
+    std::optional<Move> parseUCIMove(const Board& board, std::string_view notation);
 
     inline int toIndex(Square sq) {
         return static_cast<int>(sq);
