@@ -18,6 +18,7 @@ add_library(chess_engine
         src/PieceSquareTables.cpp
         src/Zobrist.cpp
         include/chess/Zobrist.h
+        include/chess/GoParameters.h
 )
 
 target_include_directories(chess_engine

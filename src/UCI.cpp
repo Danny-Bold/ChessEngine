@@ -52,6 +52,7 @@ namespace Chess {
             board_ = Board{};
         }
         else if (command == "position") {
+            stopSearch();
             handlePosition(line);
         }
         else if (command == "go") {
@@ -61,9 +62,11 @@ namespace Chess {
             stopRequested_.store(true, std::memory_order_relaxed);
         }
         else if (command == "quit") {
+            stopSearch();
             return false;
         }
         else if (command == "ponderhit") {
+            handlePonderHit();
             // TODO: the player played the best expected move.
         }
 
@@ -152,55 +155,114 @@ namespace Chess {
 
         // Prepare for the new search.
         stopSearch();
-        stopRequested_.store(false);
+        stopRequested_.store(false, std::memory_order_relaxed);
 
+        activeSearchParams_ = *parsed;
         const GoParameters& searchParams = *parsed;
 
         if (searchParams.ponder) {
-            std::cout << "info string Pondering not implemented\n";
-        } else if (searchParams.infinite) {
-            const auto moveTime = searchParams.moveTime;
+            {
+                std::lock_guard lock(timing_.mutex);
+                timing_.pondering = true;
+                timing_.deadline = std::nullopt;
+            }
 
-            const auto deadline = moveTime.has_value() ? std::optional(Clock::now() + std::chrono::milliseconds(*moveTime)) : std::nullopt;
-
-            searchThread_ = std::thread([this, deadline]() {
+            searchThread_ = std::thread([this]() {
                 Move result = findBestMoveInfinite(
                     board_,
                     stopRequested_,
-                    deadline
+                    timing_
+                    );
+
+                // Since the search is infinite, we don't need to handle the edge case where the ponder finishes before ponderhit/stop
+                std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
+            });
+
+        } else if (searchParams.infinite) {
+            {
+                std::lock_guard lock(timing_.mutex);
+                timing_.pondering = false;
+                timing_.deadline = std::nullopt;
+            }
+
+            searchThread_ = std::thread([this]() {
+                Move result = findBestMoveInfinite(
+                    board_,
+                    stopRequested_,
+                    timing_
                 );
                 std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
         });
         } else if (searchParams.depth.has_value()) {
             const int depth = *searchParams.depth;
-            const auto moveTime = searchParams.moveTime;
+            const auto budget = calculateTimeBudget(searchParams, board_.whiteToMove());
+            {
+                std::lock_guard lock(timing_.mutex);
+                timing_.pondering = false;
 
-            const auto deadline = moveTime.has_value() ? std::optional(Clock::now() + std::chrono::milliseconds(*moveTime)) : std::nullopt;
+                if (budget.has_value()) {
+                    timing_.deadline = Clock::now() + *budget;
+                } else {
+                    timing_.deadline = std::nullopt;
+                }
+            }
 
-            searchThread_ = std::thread([this, depth, deadline]() {
+            searchThread_ = std::thread([this, depth]() {
                 BestMoveResult result = findBestMoveDepth(
                     board_,
                     depth,
                     stopRequested_,
                     std::nullopt,
-                    deadline
+                    timing_
                     );
                 std::cout << "bestmove " << moveToString(result.move) << '\n' << std::flush;
             });
 
-        } else if (searchParams.moveTime.has_value()) {
-            using Clock = std::chrono::steady_clock;
+        } else {
+            const auto budget = calculateTimeBudget(searchParams, board_.whiteToMove());
+            if (!budget.has_value()) {
+                std::cout << "info string No usable time control\n";
+                return;
+            }
 
-            const auto start = Clock::now();
-            const auto deadline = start + std::chrono::milliseconds(*searchParams.moveTime);
+            {
+                std::lock_guard lock(timing_.mutex);
+                timing_.pondering = false;
+                timing_.deadline = Clock::now() + *budget;
+            }
 
-            searchThread_ = std::thread([this, deadline]() {
-                Move result = findBestMoveInfinite(board_, stopRequested_, deadline);
+            searchThread_ = std::thread([this]() {
+                Move result = findBestMoveInfinite(board_, stopRequested_, timing_);
                 std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
             });
 
+        }
+    }
+
+    void Uci::handlePonderHit() {
+        if (!activeSearchParams_.has_value()) {
+            std::cout << "info string Unexpected ponderhit\n";
+            return;
+        }
+
+        const auto budget = calculateTimeBudget(
+            *activeSearchParams_,
+            board_.whiteToMove()
+        );
+
+        std::lock_guard lock(timing_.mutex);
+
+        if (!timing_.pondering) {
+            std::cout << "info string Unexpected ponderhit\n";
+            return;
+        }
+
+        timing_.pondering = false;
+
+        if (budget.has_value()) {
+            timing_.deadline = Clock::now() + *budget;
         } else {
-            std::cout << "info string Unsupported go command\n";
+            timing_.deadline = std::nullopt;
         }
     }
 

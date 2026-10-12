@@ -7,7 +7,9 @@
 #include <atomic>
 #include <chrono>
 #include <optional>
+#include <mutex>
 
+#include "chess/GoParameters.h"
 #include "chess/Board.h"
 
 namespace Chess {
@@ -26,11 +28,21 @@ namespace Chess {
         bool stopped;
     };
 
-    SearchResult negamax(Board& board, int depth, int ply, int alpha, int beta, const std::atomic<bool>& stopRequested, const std::optional<Clock::time_point>& deadline);
+    struct SearchTiming {
+        std::mutex mutex;
+        bool pondering = false;
+        std::optional<Clock::time_point> deadline;
+    };
 
-    SearchResult searchToDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Clock::time_point> deadline = std::nullopt);
+    SearchResult negamax(Board& board, int depth, int ply, int alpha, int beta, const std::atomic<bool>& stopRequested, SearchTiming& timing);
 
-    BestMoveResult findBestMoveDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Move> preferredMove = std::nullopt, std::optional<Clock::time_point> deadline = std::nullopt);
+    SearchResult searchToDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, SearchTiming& timing);
 
-    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, std::optional<Clock::time_point> deadline = std::nullopt);
+    BestMoveResult findBestMoveDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Move> preferredMove, SearchTiming& timing);
+
+    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, SearchTiming& timing);
+
+    bool isTimeUp(SearchTiming& timing);
+
+    std::optional<std::chrono::milliseconds> calculateTimeBudget(const GoParameters& params, bool whiteToMove);
 }

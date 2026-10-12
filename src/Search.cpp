@@ -13,15 +13,13 @@
 namespace Chess {
     using Clock = std::chrono::steady_clock;
 
-    SearchResult negamax(Board& board, int depth, int ply, int alpha, int beta, const std::atomic<bool>& stopRequested, const std::optional<Clock::time_point>& deadline) {
+    SearchResult negamax(Board& board, int depth, int ply, int alpha, int beta, const std::atomic<bool>& stopRequested, SearchTiming& timing) {
         if (stopRequested.load(std::memory_order_relaxed)) {
             return {0, true};  // Respect the stop call, stop before doing any legal move generation
         }
 
-        if (deadline.has_value()) {
-            if (Clock::now() >= *deadline) {
-                return {0, true};  // Currently checks every node. Potentially inefficient given something like 1e6 nodes per second.
-            }
+        if (isTimeUp(timing)) {
+            return {0, true};
         }
 
         if (board.isInsufficientMaterial() || board.getHalfMoveClock() >= 100 || board.isThreefoldRepetition()) {
@@ -57,7 +55,7 @@ namespace Chess {
         for (const Move& move : legalMoves) {
             board.makeMove(move);
 
-            SearchResult child = negamax(board, depth - 1, ply + 1, -beta, -alpha, stopRequested, deadline);
+            SearchResult child = negamax(board, depth - 1, ply + 1, -beta, -alpha, stopRequested, timing);
 
             board.undoMove(move);
 
@@ -78,14 +76,14 @@ namespace Chess {
         return {bestScore, false};
     }
 
-    SearchResult searchToDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Clock::time_point> deadline) {
+    SearchResult searchToDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, SearchTiming& timing) {
         int alpha = -INF;
         int beta = INF;
 
-        return negamax(board, depth, 1, alpha, beta, stopRequested, deadline);
+        return negamax(board, depth, 1, alpha, beta, stopRequested, timing);
     }
 
-    BestMoveResult findBestMoveDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Move> preferredMove, std::optional<Clock::time_point> deadline) {
+    BestMoveResult findBestMoveDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Move> preferredMove, SearchTiming& timing) {
         const Move noMove(
             Square::NO_SQUARE,
             Square::NO_SQUARE,
@@ -97,10 +95,8 @@ namespace Chess {
             return {noMove, true};
         }
 
-        if (deadline.has_value()) {
-            if (Clock::now() >= *deadline) {
-                return {noMove, true};
-            }
+        if (isTimeUp(timing)) {
+            return {noMove, true};
         }
 
         std::vector<Move> legalMoves = board.getLegalMoves();
@@ -128,10 +124,8 @@ namespace Chess {
                 return {bestMove, true};
             }
 
-            if (deadline.has_value()) {
-                if (Clock::now() >= *deadline) {
-                    return {bestMove, true};
-                }
+            if (isTimeUp(timing)) {
+                return {noMove, true};
             }
 
             board.makeMove(move);
@@ -143,7 +137,7 @@ namespace Chess {
                 -beta,
                 -alpha,
                 stopRequested,
-                deadline
+                timing
             );
 
             board.undoMove(move);
@@ -165,25 +159,27 @@ namespace Chess {
         return {bestMove, false};
     }
 
-    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, std::optional<Clock::time_point> deadline) {
+    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, SearchTiming& timing) {
+        const Move noMove(
+            Square::NO_SQUARE,
+            Square::NO_SQUARE,
+            EMPTY, EMPTY, EMPTY,
+            false, false, false
+        );
+
         int depth = 1;
 
         std::vector<Move> allMoves = board.getLegalMoves();
 
         if (allMoves.empty()) {
-            return {
-                Square::NO_SQUARE,
-                Square::NO_SQUARE,
-                EMPTY, EMPTY, EMPTY,
-                false, false, false
-            };
+            return noMove;
         }
 
         Move bestMove = allMoves.front();
         std::optional<Move> preferredMove = std::nullopt;
 
         while (!stopRequested.load(std::memory_order_relaxed)) {
-            BestMoveResult result = findBestMoveDepth(board, depth, stopRequested, preferredMove, deadline);
+            BestMoveResult result = findBestMoveDepth(board, depth, stopRequested, preferredMove, timing);
 
             if (result.stopped) {
                 break;
@@ -192,14 +188,53 @@ namespace Chess {
             bestMove = result.move;
             preferredMove = bestMove;
             ++depth;
-
-            if (deadline.has_value()) {
-                if (Clock::now() >= *deadline) {
-                    break;
-                }
-            }
         }
 
         return bestMove;
+    }
+    bool isTimeUp(SearchTiming& timing) {
+        std::lock_guard lock(timing.mutex);
+
+        if (timing.pondering || !timing.deadline.has_value()) {
+            return false;
+        }
+
+        return Clock::now() >= *timing.deadline;
+    }
+
+    std::optional<std::chrono::milliseconds> calculateTimeBudget(const GoParameters& params, bool whiteToMove) {
+        using namespace std::chrono;
+
+        // Explicit time limit takes priority.
+        if (params.moveTime.has_value()) {
+            return milliseconds(std::max(0, *params.moveTime));
+        }
+
+        // Select the clock and increment for the player to move.
+        const auto remaining = whiteToMove ? params.wtime : params.btime;
+        const auto increment = whiteToMove ? params.winc : params.binc;
+
+        // No clock information means we cannot calculate a budget.
+        if (!remaining.has_value()) {
+            return std::nullopt;
+        }
+
+        const auto remainingMs = std::max(0, *remaining);
+        const auto incrementMs = increment.value_or(0);
+        const auto movesToGo = params.movesToGo.value_or(30);
+
+        if (movesToGo <= 0 || remainingMs == 0) {
+            return milliseconds(0);
+        }
+
+        const auto nominal =
+            remainingMs / movesToGo + 4 * incrementMs / 5;
+
+        const auto budget = std::min(
+            9 * nominal / 10,
+            remainingMs / 5
+        );
+
+        return milliseconds(std::max(1, budget));
     }
 }
