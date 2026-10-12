@@ -128,6 +128,10 @@ namespace Chess {
     }
 
     inline std::string moveToString(const Move& move) {
+        if (move.from == Square::NO_SQUARE && move.to == Square::NO_SQUARE) {
+            return "0000";
+        }
+
         std::string result =
             squareToString(move.from) +
             squareToString(move.to);
