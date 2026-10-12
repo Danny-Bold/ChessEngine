@@ -12,6 +12,8 @@
 
 #include <limits>
 
+#include "chess/Search.h"
+
 
 namespace Chess {
     Uci::Uci(Board& board) : board_(board) {}
@@ -45,6 +47,7 @@ namespace Chess {
             std::cout << "readyok\n";
         }
         else if (command == "ucinewgame") {
+            stopSearch();
             board_ = Board{};
         }
         else if (command == "position") {
@@ -52,10 +55,9 @@ namespace Chess {
         }
         else if (command == "go") {
             handleGo(line);
-            // TODO: invoke the search algorithm.
         }
         else if (command == "stop") {
-            // TODO: stop an active search.
+            stopRequested_.store(true, std::memory_order_relaxed);
         }
         else if (command == "quit") {
             return false;
@@ -114,6 +116,73 @@ namespace Chess {
     }
 
     void Uci::handleGo(const std::string& line) {
+
+        std::istringstream input(line);
+        std::string command;
+        input >> command;
+
+        std::string firstArg;
+        if (!(input >> firstArg)) {
+            std::cout << "info string Missing go parameters\n";
+            return;
+        }
+
+        if (firstArg == "perft") {
+            int depth;
+            std::string extra;
+
+            if (!(input >> depth) || depth < 1 || (input >> extra)) {
+                std::cout << "info string Invalid perft command\n";
+                return;
+            }
+
+            stopSearch();
+            stopRequested_.store(false, std::memory_order_relaxed);
+
+            divide(board_, depth);
+            return;
+        }
+
+        const auto parsed = parseGoParameters(line);
+
+        if (!parsed) {
+            return;
+        }
+
+        // Prepare for the new search.
+        stopSearch();
+        stopRequested_.store(false);
+
+        const GoParameters& searchParams = *parsed;
+
+        if (searchParams.ponder) {
+            std::cout << "info string Pondering not implemented\n";
+        } else if (searchParams.infinite) {
+            searchThread_ = std::thread([this]() {
+                Move result = findBestMoveInfinite(
+                    board_,
+                    stopRequested_
+                );
+                std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
+        });
+        } else if (searchParams.depth.has_value()) {
+            const int depth = *searchParams.depth;
+            searchThread_ = std::thread([this, depth]() {
+                BestMoveResult result = findBestMoveDepth(
+                    board_,
+                    depth,
+                    stopRequested_
+                    );
+                std::cout << "bestmove " << moveToString(result.move) << '\n' << std::flush;
+            });
+        } else if (searchParams.moveTime.has_value()) {
+            std::cout << "info string movetime search not implemented";
+        } else {
+            std::cout << "info string Unsupported go command\n";
+        }
+    }
+
+    std::optional<GoParameters> Uci::parseGoParameters(const std::string& line) {
         std::istringstream input(line);
         std::vector<std::string> tokens;
         std::string token;
@@ -251,7 +320,7 @@ namespace Chess {
                     }
                     else if (key == "perft") {
                         divide(board_, static_cast<int>(value));
-                        return;
+                        return std::nullopt;
                     }
                 }
                 else {
@@ -264,7 +333,19 @@ namespace Chess {
         catch (const std::exception& e) {
             std::cout << "info string Invalid go command: "
                       << e.what() << '\n';
-            return;
+            return std::nullopt;
+        }
+
+        // Capture the parameters by value.
+        GoParameters searchParams = params;
+
+        return searchParams;
+    }
+
+    void Uci::stopSearch() {
+        if (searchThread_.joinable()) {
+            stopRequested_.store(true, std::memory_order_relaxed);
+            searchThread_.join();
         }
     }
 

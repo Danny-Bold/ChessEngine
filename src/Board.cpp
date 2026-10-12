@@ -1128,7 +1128,6 @@ namespace Chess{
             castlingRights == other.castlingRights &&
             sideToMove == other.sideToMove &&
             halfMoveClock == other.halfMoveClock;
-
     }
 
     std::uint64_t perft(Board& board, int depth) {
@@ -1164,5 +1163,4 @@ namespace Chess{
 
         std::cout << "Total: " << total << '\n';
     }
-
 }

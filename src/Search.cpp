@@ -9,11 +9,19 @@
 #include "chess/Evaluation.h"
 
 namespace Chess {
-    int negamax(Board& board, int depth, int ply, int alpha, int beta) {
+    SearchResult negamax(Board& board, int depth, int ply, int alpha, int beta, const std::atomic<bool>& stopRequested) {
+        if (stopRequested.load(std::memory_order_relaxed)) {
+            return {0, true};  // Respect the stop call, and stop before doing any legal move generation
+        }
+
+        if (depth == 0) {
+            return {Evaluation::evaluate(board), false};
+        }
+
         std::vector<Move> legalMoves = board.getLegalMoves();
 
         if (board.isInsufficientMaterial() || board.getHalfMoveClock() >= 100) {  // TODO threefold repetition
-            return 0;
+            return {0, false};
         }
 
         if (legalMoves.empty()) {
@@ -28,14 +36,10 @@ namespace Chess {
             }
 
             if (checkmate) {
-                return -MATE_SCORE + ply;
+                return {-MATE_SCORE + ply, false};
             }
 
-            return 0;
-        }
-
-        if (depth == 0) {
-            return Evaluation::evaluate(board);
+            return {0, false};
         }
 
         int bestScore = -INF;
@@ -43,9 +47,15 @@ namespace Chess {
         for (const Move& move : legalMoves) {
             board.makeMove(move);
 
-            int score = -negamax(board, depth - 1, ply + 1, -beta, -alpha);
+            SearchResult child = negamax(board, depth - 1, ply + 1, -beta, -alpha, stopRequested);
 
             board.undoMove(move);
+
+            if (child.stopped) {
+                return {0, true};
+            }
+
+            int score = -child.score;
 
             bestScore = std::max(bestScore, score);
             alpha = std::max(alpha, score);
@@ -55,31 +65,110 @@ namespace Chess {
             }
         }
 
-        return bestScore;
+        return {bestScore, false};
     }
 
-    int searchToDepth(Board& board, int depth) {
+    SearchResult searchToDepth(Board& board, int depth, const std::atomic<bool>& stopRequested) {
         int alpha = -INF;
         int beta = INF;
 
-        return negamax(board, depth, 1, alpha, beta);
+        return negamax(board, depth, 1, alpha, beta, stopRequested);
     }
 
-    Move findBestMoveDepth(Board& board, int depth) {
-        int bestScore = -INF;
-        Move bestMove = Chess::Move(Square::NO_SQUARE, Square::NO_SQUARE, EMPTY, EMPTY, EMPTY, false, false, false);
+    BestMoveResult findBestMoveDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Move> preferredMove) {
+        const Move noMove(
+            Square::NO_SQUARE,
+            Square::NO_SQUARE,
+            EMPTY, EMPTY, EMPTY,
+            false, false, false
+        );
+
+        if (stopRequested.load(std::memory_order_relaxed)) {
+            return {noMove, true};
+        }
 
         std::vector<Move> legalMoves = board.getLegalMoves();
 
+        if (legalMoves.empty()) {
+            return {noMove, false};
+        }
+
+        if (preferredMove.has_value()) {
+            auto it = std::find(legalMoves.begin(), legalMoves.end(), preferredMove.value());
+
+            if (it != legalMoves.end()) {
+                std::iter_swap(legalMoves.begin(), it);
+            }
+        }
+
+        Move bestMove = legalMoves.front();
+        int bestScore = -INF;
+
+        int alpha = -INF;
+        const int beta = INF;
+
         for (const Move& move : legalMoves) {
+            if (stopRequested.load(std::memory_order_relaxed)) {
+                return {bestMove, true};
+            }
+
             board.makeMove(move);
-            int score = -searchToDepth(board, depth - 1);  // Negate because one move deep implies the enemy is moving, so scores are returned from their perspective
+
+            SearchResult result = negamax(
+                board,
+                depth - 1,
+                1,
+                -beta,
+                -alpha,
+                stopRequested
+            );
+
+            board.undoMove(move);
+
+            if (result.stopped) {
+                return {bestMove, true};
+            }
+
+            const int score = -result.score;
 
             if (score > bestScore) {
                 bestScore = score;
                 bestMove = move;
             }
-            board.undoMove(move);
+
+            alpha = std::max(alpha, score);
+        }
+
+        return {bestMove, false};
+    }
+
+    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested) {
+        int depth = 1;
+
+        std::vector<Move> allMoves = board.getLegalMoves();
+
+        if (allMoves.empty()) {
+            return {
+                Square::NO_SQUARE,
+                Square::NO_SQUARE,
+                EMPTY, EMPTY, EMPTY,
+                false, false, false
+            };
+        }
+
+        Move bestMove = allMoves.front();
+        std::optional<Move> preferredMove = std::nullopt;
+
+        while (!stopRequested.load(std::memory_order_relaxed)) {
+            BestMoveResult result = findBestMoveDepth(board, depth, stopRequested, preferredMove);
+
+            if (result.stopped) {
+                break;
+            }
+
+            bestMove = result.move;
+            preferredMove = bestMove;
+            ++depth;
         }
 
         return bestMove;

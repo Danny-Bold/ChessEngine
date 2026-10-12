@@ -19,6 +19,8 @@ namespace Chess {
         bool isCastle;
         bool isDoublePawnPush;
 
+        bool operator==(const Move& other) const = default;
+
         Move(
             Square from,
             Square to,
