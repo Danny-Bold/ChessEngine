@@ -5,14 +5,27 @@
 #include <algorithm>
 #include <limits>
 #include <optional>
+#include <chrono>
 
 #include "chess/Search.h"
 #include "chess/Evaluation.h"
 
 namespace Chess {
-    SearchResult negamax(Board& board, int depth, int ply, int alpha, int beta, const std::atomic<bool>& stopRequested) {
+    using Clock = std::chrono::steady_clock;
+
+    SearchResult negamax(Board& board, int depth, int ply, int alpha, int beta, const std::atomic<bool>& stopRequested, const std::optional<Clock::time_point>& deadline) {
         if (stopRequested.load(std::memory_order_relaxed)) {
-            return {0, true};  // Respect the stop call, and stop before doing any legal move generation
+            return {0, true};  // Respect the stop call, stop before doing any legal move generation
+        }
+
+        if (deadline.has_value()) {
+            if (Clock::now() >= *deadline) {
+                return {0, true};  // Currently checks every node. Potentially inefficient given something like 1e6 nodes per second.
+            }
+        }
+
+        if (board.isInsufficientMaterial() || board.getHalfMoveClock() >= 100 || board.isThreefoldRepetition()) {
+            return {0, false};
         }
 
         if (depth == 0) {
@@ -20,10 +33,6 @@ namespace Chess {
         }
 
         std::vector<Move> legalMoves = board.getLegalMoves();
-
-        if (board.isInsufficientMaterial() || board.getHalfMoveClock() >= 100 || board.isThreefoldRepetition()) {
-            return {0, false};
-        }
 
         if (legalMoves.empty()) {
             // Either checkmate or stalemate. Check which.
@@ -48,7 +57,7 @@ namespace Chess {
         for (const Move& move : legalMoves) {
             board.makeMove(move);
 
-            SearchResult child = negamax(board, depth - 1, ply + 1, -beta, -alpha, stopRequested);
+            SearchResult child = negamax(board, depth - 1, ply + 1, -beta, -alpha, stopRequested, deadline);
 
             board.undoMove(move);
 
@@ -69,14 +78,14 @@ namespace Chess {
         return {bestScore, false};
     }
 
-    SearchResult searchToDepth(Board& board, int depth, const std::atomic<bool>& stopRequested) {
+    SearchResult searchToDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Clock::time_point> deadline) {
         int alpha = -INF;
         int beta = INF;
 
-        return negamax(board, depth, 1, alpha, beta, stopRequested);
+        return negamax(board, depth, 1, alpha, beta, stopRequested, deadline);
     }
 
-    BestMoveResult findBestMoveDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Move> preferredMove) {
+    BestMoveResult findBestMoveDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Move> preferredMove, std::optional<Clock::time_point> deadline) {
         const Move noMove(
             Square::NO_SQUARE,
             Square::NO_SQUARE,
@@ -86,6 +95,12 @@ namespace Chess {
 
         if (stopRequested.load(std::memory_order_relaxed)) {
             return {noMove, true};
+        }
+
+        if (deadline.has_value()) {
+            if (Clock::now() >= *deadline) {
+                return {noMove, true};
+            }
         }
 
         std::vector<Move> legalMoves = board.getLegalMoves();
@@ -113,6 +128,12 @@ namespace Chess {
                 return {bestMove, true};
             }
 
+            if (deadline.has_value()) {
+                if (Clock::now() >= *deadline) {
+                    return {bestMove, true};
+                }
+            }
+
             board.makeMove(move);
 
             SearchResult result = negamax(
@@ -121,7 +142,8 @@ namespace Chess {
                 1,
                 -beta,
                 -alpha,
-                stopRequested
+                stopRequested,
+                deadline
             );
 
             board.undoMove(move);
@@ -143,7 +165,7 @@ namespace Chess {
         return {bestMove, false};
     }
 
-    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested) {
+    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, std::optional<Clock::time_point> deadline) {
         int depth = 1;
 
         std::vector<Move> allMoves = board.getLegalMoves();
@@ -161,7 +183,7 @@ namespace Chess {
         std::optional<Move> preferredMove = std::nullopt;
 
         while (!stopRequested.load(std::memory_order_relaxed)) {
-            BestMoveResult result = findBestMoveDepth(board, depth, stopRequested, preferredMove);
+            BestMoveResult result = findBestMoveDepth(board, depth, stopRequested, preferredMove, deadline);
 
             if (result.stopped) {
                 break;
@@ -170,6 +192,12 @@ namespace Chess {
             bestMove = result.move;
             preferredMove = bestMove;
             ++depth;
+
+            if (deadline.has_value()) {
+                if (Clock::now() >= *deadline) {
+                    break;
+                }
+            }
         }
 
         return bestMove;

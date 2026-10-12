@@ -5,6 +5,7 @@
 #include <iostream>
 #include <optional>
 #include <sstream>
+#include <chrono>
 
 #include "chess/Move.h"
 #include "chess/Board.h"
@@ -158,25 +159,46 @@ namespace Chess {
         if (searchParams.ponder) {
             std::cout << "info string Pondering not implemented\n";
         } else if (searchParams.infinite) {
-            searchThread_ = std::thread([this]() {
+            const auto moveTime = searchParams.moveTime;
+
+            const auto deadline = moveTime.has_value() ? std::optional(Clock::now() + std::chrono::milliseconds(*moveTime)) : std::nullopt;
+
+            searchThread_ = std::thread([this, deadline]() {
                 Move result = findBestMoveInfinite(
                     board_,
-                    stopRequested_
+                    stopRequested_,
+                    deadline
                 );
                 std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
         });
         } else if (searchParams.depth.has_value()) {
             const int depth = *searchParams.depth;
-            searchThread_ = std::thread([this, depth]() {
+            const auto moveTime = searchParams.moveTime;
+
+            const auto deadline = moveTime.has_value() ? std::optional(Clock::now() + std::chrono::milliseconds(*moveTime)) : std::nullopt;
+
+            searchThread_ = std::thread([this, depth, deadline]() {
                 BestMoveResult result = findBestMoveDepth(
                     board_,
                     depth,
-                    stopRequested_
+                    stopRequested_,
+                    std::nullopt,
+                    deadline
                     );
                 std::cout << "bestmove " << moveToString(result.move) << '\n' << std::flush;
             });
+
         } else if (searchParams.moveTime.has_value()) {
-            std::cout << "info string movetime search not implemented";
+            using Clock = std::chrono::steady_clock;
+
+            const auto start = Clock::now();
+            const auto deadline = start + std::chrono::milliseconds(*searchParams.moveTime);
+
+            searchThread_ = std::thread([this, deadline]() {
+                Move result = findBestMoveInfinite(board_, stopRequested_, deadline);
+                std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
+            });
+
         } else {
             std::cout << "info string Unsupported go command\n";
         }
