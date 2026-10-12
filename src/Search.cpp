@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 
 #include "chess/Search.h"
 #include "chess/Evaluation.h"
@@ -20,7 +21,7 @@ namespace Chess {
 
         std::vector<Move> legalMoves = board.getLegalMoves();
 
-        if (board.isInsufficientMaterial() || board.getHalfMoveClock() >= 100) {  // TODO threefold repetition
+        if (board.isInsufficientMaterial() || board.getHalfMoveClock() >= 100 || board.isThreefoldRepetition()) {
             return {0, false};
         }
 
