@@ -46,5 +46,4 @@ namespace Chess::Evaluation {
             static_cast<int>(square) ^ 56
         );
     }
-
 }

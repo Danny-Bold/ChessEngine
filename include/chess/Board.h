@@ -136,7 +136,6 @@ namespace Chess {
             squareToString(move.from) +
             squareToString(move.to);
 
-        // Add promotion piece, e.g. e7e8q
         if (move.promotionPiece != EMPTY) {
             switch (move.promotionPiece) {
                 case WHITE_QUEEN:
@@ -166,9 +165,4 @@ namespace Chess {
 
         return result;
     }
-
-    std::uint64_t perft(Board& board, int depth);
-
-    void divide(Board& board, int depth);
-
 }

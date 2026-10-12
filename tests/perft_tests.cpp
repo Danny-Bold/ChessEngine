@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <iostream>
 
-#include "chess/Board.h"
+#include "chess/perft.h"
 
 
 int main() {  // TODO Make other positions to test from
@@ -47,3 +47,5 @@ int main() {  // TODO Make other positions to test from
     std::cout << "All perft tests passed.\n";
     return 0;
 }
+
+// "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1" Kiwipete position

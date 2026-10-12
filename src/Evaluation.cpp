@@ -4,10 +4,9 @@
 
 #include <bit>
 #include <cstdint>
+#include <stdexcept>
 
 #include "chess/Evaluation.h"
-
-#include <stdexcept>
 
 
 namespace Chess::Evaluation {

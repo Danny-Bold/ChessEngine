@@ -3,8 +3,9 @@
 //
 
 #include <iostream>
-#include "../include/chess/Bitboard.h"
-#include "../include/chess/constants.h"
+
+#include "chess/Bitboard.h"
+#include "chess/constants.h"
 
 namespace Chess {
     Square popLSB(uint64_t& bb) {
@@ -39,19 +40,14 @@ namespace Chess {
             {
                 int square = rank * 8 + file;
 
-                if (bb & (1ULL << square))
-                {
+                if (bb & (1ULL << square)) {
                     std::cout << " X";
-                }
-                else
-                {
+                } else {
                     std::cout << " .";
                 }
             }
-
             std::cout << '\n';
         }
-
         std::cout << "   a b c d e f g h\n";
     }
 }

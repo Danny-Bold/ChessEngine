@@ -2,7 +2,7 @@
 // Created by Danny on 06/06/2026.
 //
 
-#include "../include/chess/AttackTables.h"
+#include "chess/AttackTables.h"
 
 #include <cstdint>
 

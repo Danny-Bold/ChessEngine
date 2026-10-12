@@ -6,11 +6,8 @@
 
 #include <vector>
 
-#include "Bitboard.h"
-#include "constants.h"
 #include "Board.h"
 #include "Move.h"
-#include "AttackTables.h"
 
 namespace Chess {
     std::vector<Move> generatePseudoWhiteMoves(const Board& board);

@@ -4,7 +4,6 @@
 
 #include <vector>
 #include <cstdint>
-#include <iostream>
 
 #include "chess/Bitboard.h"
 #include "chess/constants.h"
@@ -29,8 +28,6 @@ namespace Chess {
     std::vector<Move> generateWhiteMoves(Board& board) {
         std::vector<Move> pseudo = generatePseudoWhiteMoves(board);
 
-        // std::cout << pseudo.size() << "\n";
-
         for (auto it = pseudo.begin(); it != pseudo.end(); ) {
             Move move = *it;
 
@@ -42,16 +39,12 @@ namespace Chess {
             board.undoMove(move);
 
             if (!legal) {
-                // std::cout << "Illegal move found\n";
                 it = pseudo.erase(it);
             }
             else {
                 ++it;
             }
         }
-
-        // std::cout << pseudo.size() << "\n";
-
         return pseudo;
     }
 
@@ -71,8 +64,6 @@ namespace Chess {
     std::vector<Move> generateBlackMoves(Board& board) {
         std::vector<Move> pseudo = generatePseudoBlackMoves(board);
 
-        // std::cout << pseudo.size() << "\n";
-
         for (auto it = pseudo.begin(); it != pseudo.end(); ) {
             Move move = *it;
 
@@ -89,9 +80,6 @@ namespace Chess {
                 ++it;
             }
         }
-
-        // std::cout << pseudo.size() << "\n";
-
         return pseudo;
     }
 
@@ -1144,7 +1132,6 @@ namespace Chess {
 
         // Queenside castle
         if (board.castlingRights & BQ) {
-
             bool empty = !(occ & ((1ULL << toIndex(Square::B8)) |
                                   (1ULL << toIndex(Square::C8)) |
                                   (1ULL << toIndex(Square::D8))));
@@ -1158,7 +1145,5 @@ namespace Chess {
                 moves.push_back(Move(Square::E8, Square::C8, BLACK_KING, EMPTY, EMPTY, false, true, false));
             }
         }
-
     }
-
 }

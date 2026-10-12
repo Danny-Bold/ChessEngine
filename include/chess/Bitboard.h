@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include <bit>
 #include <cstdint>
+
 #include "constants.h"
 
 namespace Chess {

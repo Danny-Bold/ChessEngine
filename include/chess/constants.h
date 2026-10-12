@@ -5,7 +5,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 
 namespace Chess {
     using CastlingRights = uint8_t;
@@ -74,7 +73,6 @@ namespace Chess {
 
             case EMPTY:        return '.';
         }
-
         return '?';
     }
 }

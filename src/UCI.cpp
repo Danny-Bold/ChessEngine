@@ -8,7 +8,7 @@
 #include <chrono>
 
 #include "chess/Move.h"
-#include "chess/Board.h"
+#include "chess/perft.h"
 #include "chess/UCI.h"
 
 #include <limits>
@@ -67,7 +67,6 @@ namespace Chess {
         }
         else if (command == "ponderhit") {
             handlePonderHit();
-            // TODO: the player played the best expected move.
         }
 
         else if (command == "d") {
@@ -402,10 +401,6 @@ namespace Chess {
                         }
                         params.movesToGo = static_cast<int>(value);
                     }
-                    else if (key == "perft") {
-                        divide(board_, static_cast<int>(value));
-                        return std::nullopt;
-                    }
                 }
                 else {
                     throw std::invalid_argument(
@@ -434,12 +429,10 @@ namespace Chess {
     }
 
     std::optional<Move> parseUCIMove(const Board& board, std::string_view notation) {
-        // Validate the notation's basic structure.
         if (notation.size() != 4 && notation.size() != 5) {
             return std::nullopt;
         }
 
-        // Validate the coordinates.
         if (notation[0] < 'a' || notation[0] > 'h' ||
             notation[2] < 'a' || notation[2] > 'h' ||
             notation[1] < '1' || notation[1] > '8' ||
@@ -456,7 +449,6 @@ namespace Chess {
         const Square start = squareFromCoords(notation[0], notation[1]);
         const Square end   = squareFromCoords(notation[2], notation[3]);
 
-        // Parse the optional promotion suffix.
         char promotion = '\0';
 
         if (notation.size() == 5) {
@@ -468,14 +460,12 @@ namespace Chess {
             }
         }
 
-        // Resolve the notation against the legal moves.
         for (const Move& move : board.getLegalMoves()) {
             if (move.from != start ||
                 move.to != end) {
                 continue;
             }
 
-            // Adapt this comparison to your Move representation.
             const Piece promoted = move.promotionPiece;
 
             if (promotion == '\0') {
@@ -495,7 +485,6 @@ namespace Chess {
                 }
             }
         }
-
         return std::nullopt;
     }
 }

@@ -140,16 +140,6 @@ namespace Chess{
     }
 
     bool Board::isSquareAttacked(Square square, Colour colour) const {
-        // We're not checking through all legal moves - we're checking specific combinations
-        // Assume colour = BLACK, so we're checking if a white piece is being attacked by a black one
-        // First, pawns: if there is a black pawn in squares 7 and 9 away from the piece, attacked
-        // Knights: if any black knights are on knightAttacks[toIndex(square)] then attacked
-        // Kings: same thing, kingAttacks[toIndex(square)]
-        // Bishops, rooks etc: process in a similar way to move generation.
-        // For each direction, get ray, e.g. bishopNE[square].
-        // Get occupancy mask, blockers = occ & ray
-        // Find nearest blocker via popLSB or popMSB, then check if bishop or queen. If so, attacked.
-
         initialiseAttackTables();
 
         uint64_t squareIndex = toIndex(square);
@@ -390,7 +380,6 @@ namespace Chess{
                 return true;
             }
         }
-
         return false;
     }
 
@@ -496,7 +485,6 @@ namespace Chess{
     }
 
     void Board::insertPieceAt(Square square, Piece piece) {
-        // assert(piece != EMPTY);
         if (piece == EMPTY) {
             std::cerr << "\n=== INSERT EMPTY PIECE ===\n";
             std::cerr << "Square: " << static_cast<int>(square) << '\n';
@@ -551,20 +539,6 @@ namespace Chess{
     }
 
     void Board::makeMove(const Move& move) {
-
-        // if (move.movingPiece == EMPTY) {
-        //     std::cerr << "\n=== SUSPICIOUS MOVE ===\n";
-        //     std::cerr << "from: " << static_cast<int>(move.from) << '\n';
-        //     std::cerr << "to:   " << static_cast<int>(move.to) << '\n';
-        //     std::cerr << "movingPiece:   " << static_cast<int>(move.movingPiece) << '\n';
-        //     std::cerr << "capturedPiece: " << static_cast<int>(move.capturedPiece) << '\n';
-        //     std::cerr << "promotionPiece:" << static_cast<int>(move.promotionPiece) << '\n';
-        //     std::cerr << "enPassant:     " << move.isEnPassant << '\n';
-        //     std::cerr << "castle:        " << move.isCastle << '\n';
-        //     std::cerr << "doublePush:    " << move.isDoublePawnPush << '\n';
-        //     std::abort();
-        // }
-
         Square from = move.from;
         Square to = move.to;
 
@@ -673,7 +647,6 @@ namespace Chess{
         }
 
         zobristHash = computeZobristHash();
-
     }
 
     void Board::makeMove(std::string_view notation) {
@@ -1198,39 +1171,5 @@ namespace Chess{
             castlingRights == other.castlingRights &&
             sideToMove == other.sideToMove &&
             halfMoveClock == other.halfMoveClock;
-    }
-
-    std::uint64_t perft(Board& board, int depth) {
-        if (depth == 0) {
-            return 1;
-        }
-
-        const auto moves = board.getLegalMoves();
-        std::uint64_t nodes = 0;
-
-        for (auto move : moves) {
-            board.makeMove(move);
-            nodes += perft(board, depth - 1);
-            board.undoMove(move);
-        }
-
-        return nodes;
-    }
-
-    void divide(Board& board, int depth) {
-        auto moves = board.getLegalMoves();
-
-        uint64_t total = 0;
-
-        for (const Chess::Move& move : moves) {
-            board.makeMove(move);
-            uint64_t nodes = perft(board, depth - 1);
-            board.undoMove(move);
-
-            std::cout << moveToString(move) << ": " << nodes << '\n';
-            total += nodes;
-        }
-
-        std::cout << "Total: " << total << '\n';
     }
 }

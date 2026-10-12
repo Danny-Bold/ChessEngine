@@ -7,7 +7,6 @@
 
 #include "chess/Zobrist.h"
 
-
 namespace Chess::Zobrist {
 
     using Hash = std::uint64_t;
