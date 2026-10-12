@@ -16,6 +16,8 @@ add_library(chess_engine
         src/Evaluation.cpp
         include/chess/Evaluation.h
         src/PieceSquareTables.cpp
+        src/Zobrist.cpp
+        include/chess/Zobrist.h
 )
 
 target_include_directories(chess_engine

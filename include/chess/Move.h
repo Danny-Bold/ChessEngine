@@ -5,6 +5,7 @@
 #pragma once
 
 #include "constants.h"
+#include "Zobrist.h"
 
 namespace Chess {
     struct Move {
@@ -45,5 +46,6 @@ namespace Chess {
         Square enPassantSquare;
         CastlingRights castlingRights;
         int halfMoveClock;
+        Zobrist::Hash zobristHash;
     };
 }

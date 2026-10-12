@@ -5,8 +5,6 @@
 #pragma once
 #include <cstdint>
 
-#include "Board.h"
-
 namespace Chess {
     extern uint64_t whitePawnAttacks[64];
     extern uint64_t blackPawnAttacks[64];

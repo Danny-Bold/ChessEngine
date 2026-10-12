@@ -7,10 +7,10 @@
 #include <vector>
 #include <cstdint>
 #include <array>
-#include <optional>
 
 #include "constants.h"
 #include "Move.h"
+#include "Zobrist.h"
 
 namespace Chess {
     class Board {
@@ -45,6 +45,7 @@ namespace Chess {
         bool isSquareAttacked(Square square, Colour colour) const;
 
         bool isInsufficientMaterial() const;
+        bool isThreefoldRepetition() const;
 
         void removePieceAt(Square square);
         void insertPieceAt(Square square, Piece piece);
@@ -71,6 +72,8 @@ namespace Chess {
         void setEnPassantSquare(Square square);
 
         void loadFEN(const std::string& fen);
+
+        Zobrist::Hash computeZobristHash() const;
 
         bool operator==(const Board& other) const;
 
@@ -99,6 +102,8 @@ namespace Chess {
         Colour sideToMove;
 
         int halfMoveClock;  // Measure time from last capture or pawn push
+
+        Zobrist::Hash zobristHash = 0;
 
     };
 

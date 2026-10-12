@@ -3,7 +3,6 @@
 //
 
 #include <iostream>
-#include <cstdint>
 #include <cassert>
 #include <sstream>
 #include <stdexcept>
@@ -15,6 +14,7 @@
 #include "chess/constants.h"
 #include "chess/MoveGen.h"
 #include "chess/UCI.h"
+#include "chess/Zobrist.h"
 
 
 namespace Chess{
@@ -50,6 +50,9 @@ namespace Chess{
         sideToMove = Colour::WHITE;
 
         halfMoveClock = 0;
+
+        Zobrist::initialiseZobristHashes();
+        zobristHash = computeZobristHash();
     }
 
     void Board::print() const {
@@ -431,6 +434,29 @@ namespace Chess{
         return false;
     }
 
+    bool Board::isThreefoldRepetition() const {
+        int repetitions = 1; // Current position
+
+        // Only positions since the last irreversible move can repeat.
+        const int maxDistance = std::min(
+            halfMoveClock,
+            static_cast<int>(history.size())
+        );
+
+        for (int distance = 2; distance <= maxDistance; distance += 2) {
+            const std::size_t index = history.size() - distance;
+
+            if (history[index].zobristHash == zobristHash) {
+                ++repetitions;
+
+                if (repetitions >= 3) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     void Board::removePieceAt(Square square) {
         uint64_t bb = 1ULL << toIndex(square);
         Piece piece = pieceAt(square);
@@ -545,7 +571,7 @@ namespace Chess{
         Piece piece = move.movingPiece;
 
         // Push state onto history
-        history.push_back({enPassantSquare, castlingRights, halfMoveClock});
+        history.push_back({enPassantSquare, castlingRights, halfMoveClock, zobristHash});
 
         // Remove the piece being moved
         removePieceAt(from);
@@ -645,6 +671,9 @@ namespace Chess{
         else {
             halfMoveClock++;
         }
+
+        zobristHash = computeZobristHash();
+
     }
 
     void Board::makeMove(std::string_view notation) {
@@ -735,6 +764,7 @@ namespace Chess{
         enPassantSquare = oldState.enPassantSquare;
         castlingRights = oldState.castlingRights;
         halfMoveClock = oldState.halfMoveClock;
+        zobristHash = oldState.zobristHash;
 
         // Remove the history that doesn't exist anymore
         history.pop_back();
@@ -886,6 +916,8 @@ namespace Chess{
 
         // Set this appropriately for the position you're loading.
         sideToMove = Colour::WHITE;
+
+        zobristHash = computeZobristHash();
 
         assertConsistent();
     }
@@ -1104,6 +1136,44 @@ namespace Chess{
 
             enPassantSquare = static_cast<Square>(epIndex);
         }
+
+        zobristHash = computeZobristHash();
+
+    }
+
+    Zobrist::Hash Board::computeZobristHash() const {
+        using namespace Zobrist;
+
+        Hash hash = 0;
+
+        // Piece-square keys.
+        for (int square = 0; square < 64; ++square) {
+            const Piece piece = board[square];
+
+            if (piece == EMPTY) {
+                continue;
+            }
+
+            const int pieceIndex = static_cast<int>(piece) - 1;  // Due to EMPTY being 0 in the Piece enum class
+
+            hash ^= pieceSquare[pieceIndex][square];
+        }
+
+        // Side to move: assume sideToMove is WHITE or BLACK.
+        if (sideToMove == Colour::BLACK) {
+            hash ^= Zobrist::sideToMove;
+        }
+
+        // Castling rights
+        hash ^= Zobrist::castlingRights[static_cast<std::size_t>(this->castlingRights)];
+
+        // En passant
+        if (enPassantSquare != Square::NO_SQUARE) {
+            const int file = static_cast<int>(enPassantSquare) % 8;
+            hash ^= enPassantFile[file];
+        }
+
+        return hash;
     }
 
     bool Board::operator==(const Board& other) const {
