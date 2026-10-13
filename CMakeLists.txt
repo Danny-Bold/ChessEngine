@@ -50,6 +50,14 @@ target_link_libraries(
         PRIVATE chess_engine
 )
 
+if(MINGW)
+    target_link_options(ChessEngine PRIVATE
+            -static
+            -static-libgcc
+            -static-libstdc++
+    )
+endif()
+
 # Compiler warnings
 if(MSVC)
     target_compile_options(chess_engine PRIVATE /W4 /permissive-)

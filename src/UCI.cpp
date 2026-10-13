@@ -42,6 +42,8 @@ namespace Chess {
         }
 
         if (command == "uci") {
+            std::cout << "id name DB's chess engine\n";
+            std::cout << "id author Danny Bold\n";
             std::cout << "uciok\n";
         }
         else if (command == "isready") {
