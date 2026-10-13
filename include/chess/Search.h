@@ -21,11 +21,14 @@ namespace Chess {
     struct SearchResult {
         int score;
         bool stopped;
+        std::vector<Move> principalVariation;
     };
 
     struct BestMoveResult {
         Move move;
         bool stopped;
+        std::vector<Move> principalVariation;
+        int depth = 0;
     };
 
     struct SearchTiming {
@@ -40,7 +43,7 @@ namespace Chess {
 
     BestMoveResult findBestMoveDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, std::optional<Move> preferredMove, SearchTiming& timing);
 
-    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, SearchTiming& timing);
+    BestMoveResult findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, SearchTiming& timing);
 
     bool isTimeUp(SearchTiming& timing);
 

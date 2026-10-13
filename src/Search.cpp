@@ -6,6 +6,7 @@
 #include <limits>
 #include <optional>
 #include <chrono>
+#include <utility>
 
 #include "chess/Search.h"
 #include "chess/Evaluation.h"
@@ -14,66 +15,80 @@ namespace Chess {
     using Clock = std::chrono::steady_clock;
 
     SearchResult negamax(Board& board, int depth, int ply, int alpha, int beta, const std::atomic<bool>& stopRequested, SearchTiming& timing) {
-        if (stopRequested.load(std::memory_order_relaxed)) {
-            return {0, true};  // Respect the stop call, stop before doing any legal move generation
+        if (stopRequested.load(std::memory_order_relaxed) || isTimeUp(timing)) {
+            return {0, true, {}};
         }
 
-        if (isTimeUp(timing)) {
-            return {0, true};
-        }
-
-        if (board.isInsufficientMaterial() || board.getHalfMoveClock() >= 100 || board.isThreefoldRepetition()) {
-            return {0, false};
-        }
+        if (board.isInsufficientMaterial() ||
+            board.getHalfMoveClock() >= 100 ||
+            board.isThreefoldRepetition()) {
+            return {0, false, {}};
+            }
 
         if (depth == 0) {
-            return {Evaluation::evaluate(board), false};
+            return {Evaluation::evaluate(board), false, {}};
         }
 
         std::vector<Move> legalMoves = board.getLegalMoves();
 
         if (legalMoves.empty()) {
-            // Either checkmate or stalemate. Check which.
             bool checkmate;
 
             if (board.whiteToMove()) {
-                checkmate = board.isSquareAttacked(board.whiteKingPosition(), Colour::BLACK);
-            }
-            else {
-                checkmate = board.isSquareAttacked(board.blackKingPosition(), Colour::WHITE);
+                checkmate = board.isSquareAttacked(
+                    board.whiteKingPosition(), Colour::BLACK
+                );
+            } else {
+                checkmate = board.isSquareAttacked(
+                    board.blackKingPosition(), Colour::WHITE
+                );
             }
 
             if (checkmate) {
-                return {-MATE_SCORE + ply, false};
+                return {-MATE_SCORE + ply, false, {}};
             }
 
-            return {0, false};
+            return {0, false, {}};
         }
 
         int bestScore = -INF;
+        std::vector<Move> bestPV;
 
         for (const Move& move : legalMoves) {
             board.makeMove(move);
 
-            SearchResult child = negamax(board, depth - 1, ply + 1, -beta, -alpha, stopRequested, timing);
+            SearchResult child = negamax(
+                board, depth - 1, ply + 1,
+                -beta, -alpha, stopRequested, timing
+            );
 
             board.undoMove(move);
 
             if (child.stopped) {
-                return {0, true};
+                return {0, true, {}};
             }
 
-            int score = -child.score;
+            const int score = -child.score;
 
-            bestScore = std::max(bestScore, score);
+            if (score > bestScore) {
+                bestScore = score;
+
+                bestPV.clear();
+                bestPV.push_back(move);
+                bestPV.insert(
+                    bestPV.end(),
+                    child.principalVariation.begin(),
+                    child.principalVariation.end()
+                );
+            }
+
             alpha = std::max(alpha, score);
 
             if (alpha >= beta) {
                 break;
             }
         }
-
-        return {bestScore, false};
+        return {bestScore, false, std::move(bestPV)};
     }
 
     SearchResult searchToDepth(Board& board, int depth, const std::atomic<bool>& stopRequested, SearchTiming& timing) {
@@ -91,22 +106,20 @@ namespace Chess {
             false, false, false
         );
 
-        if (stopRequested.load(std::memory_order_relaxed)) {
-            return {noMove, true};
-        }
-
-        if (isTimeUp(timing)) {
-            return {noMove, true};
+        if (stopRequested.load(std::memory_order_relaxed) || isTimeUp(timing)) {
+            return {noMove, true, {}, depth};
         }
 
         std::vector<Move> legalMoves = board.getLegalMoves();
 
         if (legalMoves.empty()) {
-            return {noMove, false};
+            return {noMove, false, {}, depth};
         }
 
         if (preferredMove.has_value()) {
-            auto it = std::find(legalMoves.begin(), legalMoves.end(), preferredMove.value());
+            auto it = std::find(
+                legalMoves.begin(), legalMoves.end(), *preferredMove
+            );
 
             if (it != legalMoves.end()) {
                 std::iter_swap(legalMoves.begin(), it);
@@ -119,13 +132,11 @@ namespace Chess {
         int alpha = -INF;
         const int beta = INF;
 
-        for (const Move& move : legalMoves) {
-            if (stopRequested.load(std::memory_order_relaxed)) {
-                return {bestMove, true};
-            }
+        std::vector<Move> bestPV;
 
-            if (isTimeUp(timing)) {
-                return {noMove, true};
+        for (const Move& move : legalMoves) {
+            if (stopRequested.load(std::memory_order_relaxed) || isTimeUp(timing)) {
+                return {bestMove, true, std::move(bestPV), depth};
             }
 
             board.makeMove(move);
@@ -143,7 +154,7 @@ namespace Chess {
             board.undoMove(move);
 
             if (result.stopped) {
-                return {bestMove, true};
+                return {bestMove, true, std::move(bestPV), depth};
             }
 
             const int score = -result.score;
@@ -151,15 +162,22 @@ namespace Chess {
             if (score > bestScore) {
                 bestScore = score;
                 bestMove = move;
+
+                bestPV.clear();
+                bestPV.push_back(move);
+                bestPV.insert(
+                    bestPV.end(),
+                    result.principalVariation.begin(),
+                    result.principalVariation.end()
+                );
             }
 
             alpha = std::max(alpha, score);
         }
-
-        return {bestMove, false};
+        return {bestMove, false, std::move(bestPV), depth};
     }
 
-    Move findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, SearchTiming& timing) {
+    BestMoveResult findBestMoveInfinite(Board& board, const std::atomic<bool>& stopRequested, SearchTiming& timing) {
         const Move noMove(
             Square::NO_SQUARE,
             Square::NO_SQUARE,
@@ -167,16 +185,21 @@ namespace Chess {
             false, false, false
         );
 
-        int depth = 1;
-
         std::vector<Move> allMoves = board.getLegalMoves();
 
         if (allMoves.empty()) {
-            return noMove;
+            return {noMove, false, {}, 0};
         }
 
-        Move bestMove = allMoves.front();
+        BestMoveResult bestResult{
+            allMoves.front(),
+            false,
+            {allMoves.front()},
+            0
+        };
+
         std::optional<Move> preferredMove = std::nullopt;
+        int depth = 1;
 
         while (!stopRequested.load(std::memory_order_relaxed)) {
             BestMoveResult result = findBestMoveDepth(board, depth, stopRequested, preferredMove, timing);
@@ -185,13 +208,14 @@ namespace Chess {
                 break;
             }
 
-            bestMove = result.move;
-            preferredMove = bestMove;
+            bestResult = std::move(result);
+            preferredMove = bestResult.move;
             ++depth;
         }
 
-        return bestMove;
+        return bestResult;
     }
+
     bool isTimeUp(SearchTiming& timing) {
         std::lock_guard lock(timing.mutex);
 

@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstdint>
 #include <array>
+#include <string>
 
 #include "constants.h"
 #include "Move.h"

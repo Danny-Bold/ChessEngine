@@ -37,9 +37,11 @@ namespace Chess {
         void handlePosition(const std::string& line);
         void handleGo(const std::string& line);
         void handlePonderHit();
-
-        std::optional<GoParameters> parseGoParameters(const std::string &line);
     };
+
+    std::optional<GoParameters> parseGoParameters(const std::string &line);
+
+    void printBestMove(const BestMoveResult& result);
 
     std::optional<Move> parseUCIMove(const Board& board, std::string_view notation);
 

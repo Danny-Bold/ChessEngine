@@ -167,14 +167,14 @@ namespace Chess {
             }
 
             searchThread_ = std::thread([this]() {
-                Move result = findBestMoveInfinite(
+                BestMoveResult result = findBestMoveInfinite(
                     board_,
                     stopRequested_,
                     timing_
                     );
 
                 // Since the search is infinite, we don't need to handle the edge case where the ponder finishes before ponderhit/stop
-                std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
+                std::cout << "bestmove " << moveToString(result.move) << '\n' << std::flush;
             });
 
         } else if (searchParams.infinite) {
@@ -185,12 +185,12 @@ namespace Chess {
             }
 
             searchThread_ = std::thread([this]() {
-                Move result = findBestMoveInfinite(
+                BestMoveResult result = findBestMoveInfinite(
                     board_,
                     stopRequested_,
                     timing_
                 );
-                std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
+                printBestMove(result);
         });
         } else if (searchParams.depth.has_value()) {
             const int depth = *searchParams.depth;
@@ -214,7 +214,7 @@ namespace Chess {
                     std::nullopt,
                     timing_
                     );
-                std::cout << "bestmove " << moveToString(result.move) << '\n' << std::flush;
+                printBestMove(result);
             });
 
         } else {
@@ -231,8 +231,9 @@ namespace Chess {
             }
 
             searchThread_ = std::thread([this]() {
-                Move result = findBestMoveInfinite(board_, stopRequested_, timing_);
-                std::cout << "bestmove " << moveToString(result) << '\n' << std::flush;
+                BestMoveResult result = findBestMoveInfinite(board_, stopRequested_, timing_);
+
+                printBestMove(result);
             });
 
         }
@@ -265,7 +266,14 @@ namespace Chess {
         }
     }
 
-    std::optional<GoParameters> Uci::parseGoParameters(const std::string& line) {
+    void Uci::stopSearch() {
+        if (searchThread_.joinable()) {
+            stopRequested_.store(true, std::memory_order_relaxed);
+            searchThread_.join();
+        }
+    }
+
+    std::optional<GoParameters> parseGoParameters(const std::string& line) {
         std::istringstream input(line);
         std::vector<std::string> tokens;
         std::string token;
@@ -421,11 +429,14 @@ namespace Chess {
         return searchParams;
     }
 
-    void Uci::stopSearch() {
-        if (searchThread_.joinable()) {
-            stopRequested_.store(true, std::memory_order_relaxed);
-            searchThread_.join();
+    void printBestMove(const BestMoveResult& result) {
+        std::cout << "bestmove " << moveToString(result.move);
+
+        if (result.principalVariation.size() >= 2) {
+            std::cout << " ponder " << moveToString(result.principalVariation[1]);
         }
+
+        std::cout << '\n' << std::flush;
     }
 
     std::optional<Move> parseUCIMove(const Board& board, std::string_view notation) {

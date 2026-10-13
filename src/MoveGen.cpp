@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <string>
 
 #include "chess/Bitboard.h"
 #include "chess/constants.h"
