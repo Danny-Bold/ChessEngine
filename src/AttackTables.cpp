@@ -80,11 +80,11 @@ namespace Chess {
             }
 
             if (0 <= blackAttackRank && blackAttackRank < 8 && 0 <= leftAttackFile && leftAttackFile < 8) {
-                blackPawnAttacks[square] |= (1ULL << (square - 7));
+                blackPawnAttacks[square] |= (1ULL << (square - 9));
             }
 
             if (0 <= blackAttackRank && blackAttackRank < 8 && 0 <= rightAttackFile && rightAttackFile < 8) {
-                blackPawnAttacks[square] |= (1ULL << (square - 9));
+                blackPawnAttacks[square] |= (1ULL << (square - 7));
             }
         }
     }
