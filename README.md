@@ -12,7 +12,7 @@ To find the best legal move from a position, a negamax algorithm with alpha-beta
 - Make/undo move functionality that tracks board state including castling rights, en passant rights and repetition history.
 - Negamax search algorithm with alpha-beta pruning respecting external termination commands, time budgets/deadlines and iterative deepening move reordering.
 - Lightweight static evaluation function calculating per-piece material and positional contributions.
-- Repetition via Zobrist hashing.
+- Repetition detection via Zobrist hashing.
 - Full UCI interface, enabling GUI use.
 
 ## Requirements and build instructions
@@ -22,8 +22,9 @@ To find the best legal move from a position, a negamax algorithm with alpha-beta
 
 ## Testing and validation
 
+## Search and evaluation design
 
-## Search and evlauation design
+Searching through nodes uses a standard negamax algorithm with alpha-beta pruning.
 
 ## Performance and limitations
 
